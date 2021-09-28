@@ -1,0 +1,7 @@
+*.user
+/.vs
+/Debug
+/x64
+/DecklinkTimecodeDecoder/x64
+/TimecodeDecoderService/obj
+/TimecodeDecoderService/bin
