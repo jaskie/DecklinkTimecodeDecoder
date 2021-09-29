@@ -24,6 +24,7 @@ namespace TimecodeDecoder {
 			if (index == outputDecklinkIndex)
 				outputDecklink_ = decklink;
 			index++;
+			decklink->Release();
 		}
 		if (!inputDecklink_) 
 			throw std::exception("Input decklink not found");
@@ -65,10 +66,13 @@ namespace TimecodeDecoder {
 		CComPtr<IDeckLinkTimecode> timecode;
 		std::wstring wstr;
 		BSTR timecode_str;
-		if (SUCCEEDED(time->GetTimecode(timecodeSource_, &timecode)) 
+		if (SUCCEEDED(time->GetTimecode(timecodeSource_, &timecode))
 			&& timecode
 			&& SUCCEEDED(timecode->GetString(&timecode_str)))
-			wstr = _bstr_t(timecode_str);
+		{
+			wstr = timecode_str;
+			::SysReleaseString(timecode_str);
+		}
 		else
 			wstr = L"NO TC DATA";
 		Gdiplus::Bitmap overlay_bitmap(background_rect_.Width, background_rect_.Height, PixelFormat32bppARGB);
