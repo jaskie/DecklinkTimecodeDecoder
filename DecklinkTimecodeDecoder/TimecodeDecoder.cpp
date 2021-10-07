@@ -39,8 +39,8 @@ namespace TimecodeDecoder {
 
 
 
-	TimecodeDecoder::TimecodeDecoder(int inputDecklinkIndex, int outputDecklinkIndex, VideoFormat format, DecklinkTimecodeSource timecodeSource)
-		: decoder_native_(new std::unique_ptr<DecklinkTimecodeDecoder>(new DecklinkTimecodeDecoder(inputDecklinkIndex, outputDecklinkIndex, VideoFormatToBMDDisplayMode(format), DecklinkTimemecodeSourceToBMDTimecodeFormat(timecodeSource))))
+	TimecodeDecoder::TimecodeDecoder(int inputDecklinkIndex, int outputDecklinkIndex, VideoFormat format, DecklinkTimecodeSource timecodeSource, Keyer keyer)
+		: decoder_native_(new std::unique_ptr<DecklinkTimecodeDecoder>(new DecklinkTimecodeDecoder(inputDecklinkIndex, outputDecklinkIndex, VideoFormatToBMDDisplayMode(format), DecklinkTimemecodeSourceToBMDTimecodeFormat(timecodeSource), keyer)))
 	{ }
 
 	TimecodeDecoder::~TimecodeDecoder()

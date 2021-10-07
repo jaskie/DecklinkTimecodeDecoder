@@ -124,6 +124,7 @@
     <ClInclude Include="DecklinkTimecodeDecoder.h" />
     <ClInclude Include="DecklinkTimecodeSource.h" />
     <ClInclude Include="GdiplusInitializer.h" />
+    <ClInclude Include="Keyer.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="TimecodeDecoder.h" />

@@ -2,12 +2,13 @@
 namespace TimecodeDecoder {
 	enum class VideoFormat;
 	enum class DecklinkTimecodeSource;
+	enum class Keyer;
 	class DecklinkTimecodeDecoder;
 
 	public ref class TimecodeDecoder
 	{
 	public:
-		TimecodeDecoder(int inputDecklinkIndex, int outputDecklinkIndex, VideoFormat format, DecklinkTimecodeSource timecodeSource);
+		TimecodeDecoder(int inputDecklinkIndex, int outputDecklinkIndex, VideoFormat format, DecklinkTimecodeSource timecodeSource, Keyer keyer);
 		~TimecodeDecoder();
 		!TimecodeDecoder();
 	private:

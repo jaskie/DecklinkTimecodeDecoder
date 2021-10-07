@@ -3,8 +3,9 @@
 
 namespace TimecodeDecoder {
 
-	DecklinkTimecodeDecoder::DecklinkTimecodeDecoder(int inputDecklinkIndex, int outputDecklinkIndex, BMDDisplayMode format, BMDTimecodeFormat timecodeSource)
+	DecklinkTimecodeDecoder::DecklinkTimecodeDecoder(int inputDecklinkIndex, int outputDecklinkIndex, BMDDisplayMode format, BMDTimecodeFormat timecodeSource, Keyer keyer)
 		: timecodeSource_(timecodeSource)
+		, keyer_(keyer)
 		, background_(Gdiplus::Color(150, 16, 16, 16))
 		, foreground_(Gdiplus::Color(255, 232, 232, 232))
 		, scale_x_(1)
@@ -14,25 +15,27 @@ namespace TimecodeDecoder {
 
 		CComPtr<IDeckLinkIterator> pDecklinkIterator;
 		if (FAILED(pDecklinkIterator.CoCreateInstance(CLSID_CDeckLinkIterator)))
-			throw std::exception("CreatieIterator failed");
+			throw std::exception("Iterator create failed");
 		IDeckLink* decklink;
 		int index = 0;
 		while (pDecklinkIterator->Next(&decklink) == S_OK)
 		{
 			if (index == inputDecklinkIndex)
-				inputDecklink_ = decklink;
+			{
+				input_ = decklink;
+				input_attributes_ = decklink;
+			}
 			if (index == outputDecklinkIndex)
-				outputDecklink_ = decklink;
+				output_ = decklink;
+			if (index == inputDecklinkIndex && index == outputDecklinkIndex && keyer == Keyer::Internal)
+				decklink_keyer_ = decklink;
 			index++;
 			decklink->Release();
 		}
-		if (!inputDecklink_) 
+		if (!input_) 
 			throw std::exception("Input decklink not found");
-		if (!outputDecklink_)
+		if (!output_)
 			throw std::exception("Output decklink not found");
-		input_ = inputDecklink_;
-		output_ = outputDecklink_;
-		keyer_ = outputDecklink_;
 		input_->SetCallback(this);
 		OpenOutput(format);
 		OpenInput(format);
@@ -56,16 +59,12 @@ namespace TimecodeDecoder {
 
 	void DecklinkTimecodeDecoder::Draw(CComPtr<IDeckLinkMutableVideoFrame>& video, IDeckLinkVideoInputFrame* time)
 	{
-		void* bytes = nullptr;
-		if (FAILED(video->GetBytes(&bytes)))
+		void* dest_bytes = nullptr;
+		if (FAILED(video->GetBytes(&dest_bytes)))
 			return;
-		Gdiplus::Bitmap frame_bitmap(video->GetWidth(), video->GetHeight(), video->GetRowBytes(), PixelFormat32bppARGB, static_cast<BYTE*>(bytes));
-		Gdiplus::Graphics frame_graphics(&frame_bitmap);
-		frame_graphics.Clear(Gdiplus::Color(0, 16, 16, 16));
-		frame_graphics.FillRectangle(&background_, background_rect_);
 		CComPtr<IDeckLinkTimecode> timecode;
 		std::wstring wstr;
-		BSTR timecode_str;
+		BSTR timecode_str = nullptr;
 		if (SUCCEEDED(time->GetTimecode(timecodeSource_, &timecode))
 			&& timecode
 			&& SUCCEEDED(timecode->GetString(&timecode_str)))
@@ -75,6 +74,18 @@ namespace TimecodeDecoder {
 		}
 		else
 			wstr = L"NO TC DATA";
+
+		Gdiplus::Bitmap frame_bitmap(video->GetWidth(), video->GetHeight(), video->GetRowBytes(), PixelFormat32bppARGB, static_cast<BYTE*>(dest_bytes));
+		Gdiplus::Graphics frame_graphics(&frame_bitmap);
+		if (decklink_keyer_)
+			frame_graphics.Clear(Gdiplus::Color(0, 16, 16, 16));
+		else
+		{
+			if (!frame_converter_)
+				frame_converter_.CoCreateInstance(CLSID_CDeckLinkVideoConversion);
+			frame_converter_->ConvertFrame(time, video);
+		}
+		frame_graphics.FillRectangle(&background_, background_rect_);
 		Gdiplus::Bitmap overlay_bitmap(background_rect_.Width, background_rect_.Height, PixelFormat32bppARGB);
 		Gdiplus::Graphics overlay_graphics(&overlay_bitmap);
 		overlay_graphics.ScaleTransform(scale_x_, 1.0);
@@ -93,9 +104,8 @@ namespace TimecodeDecoder {
 		if (support == BMDDisplayModeSupport::bmdDisplayModeNotSupported)
 			throw std::exception("DecklinkInput: Display mode not supported");
 
-		CComQIPtr<IDeckLinkAttributes> attributes_(outputDecklink_);
 		BOOL format_auto_detection = false;
-		if (FAILED(attributes_->GetFlag(BMDDeckLinkSupportsInputFormatDetection, &format_auto_detection)))
+		if (FAILED(input_attributes_->GetFlag(BMDDeckLinkSupportsInputFormatDetection, &format_auto_detection)))
 			format_auto_detection = false;
 		if (FAILED(input_->EnableVideoInput(current_mode_->GetDisplayMode(), BMDPixelFormat::bmdFormat8BitYUV, format_auto_detection ? bmdVideoInputEnableFormatDetection : bmdVideoInputFlagDefault)))
 			throw std::exception("DecklinkInput: EnableVideoInput failed");
@@ -103,7 +113,6 @@ namespace TimecodeDecoder {
 		if (FAILED(input_->StartStreams()))
 			throw std::exception("DecklinkInput: StartStreams failed");
 	}
-
 
 	void DecklinkTimecodeDecoder::CloseInput()
 	{
@@ -119,12 +128,15 @@ namespace TimecodeDecoder {
 		if (FAILED(output_->DoesSupportVideoMode(format, BMDPixelFormat::bmdFormat8BitYUV, BMDVideoOutputFlags::bmdVideoOutputFlagDefault, &modeSupport, NULL))
 			|| modeSupport == bmdDisplayModeNotSupported)
 			throw std::exception("DecklinkOutput: display mode not supported");
-		CComQIPtr<IDeckLinkAttributes> attributes_(output_);
-		BOOL support = FALSE;
-		if (SUCCEEDED(attributes_->GetFlag(BMDDeckLinkAttributeID::BMDDeckLinkSupportsInternalKeying, &support)) && support)
-			keyer_->Enable(FALSE);
-		if (support)
-			keyer_->SetLevel(255);
+		if (decklink_keyer_)
+		{
+			CComQIPtr<IDeckLinkAttributes> attributes_(output_);
+			BOOL support = FALSE;
+			if (SUCCEEDED(attributes_->GetFlag(BMDDeckLinkAttributeID::BMDDeckLinkSupportsInternalKeying, &support)) && support)
+				decklink_keyer_->Enable(FALSE);
+			if (support)
+				decklink_keyer_->SetLevel(255);
+		}
 		if (FAILED(output_->EnableVideoOutput(format, BMDVideoOutputFlags::bmdVideoOutputFlagDefault)))
 			throw std::exception("EnableVideoOutput failed");
 	}

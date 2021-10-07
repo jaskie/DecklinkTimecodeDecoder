@@ -1,6 +1,7 @@
 #pragma once
 #include "ComInitializer.h"
 #include "GdiplusInitializer.h"
+#include "Keyer.h"
 
 #pragma comment( lib, "gdiplus.lib" )
 
@@ -11,11 +12,12 @@ namespace TimecodeDecoder {
 		ComInitializer com_;
 		GdiplusInitializer gdi_;
 		const BMDTimecodeFormat timecodeSource_;
-		CComPtr<IDeckLink> inputDecklink_;
-		CComPtr<IDeckLink> outputDecklink_;
+		const Keyer keyer_;
 		CComQIPtr<IDeckLinkInput> input_;
 		CComQIPtr<IDeckLinkOutput> output_;
-		CComQIPtr<IDeckLinkKeyer> keyer_;
+		CComQIPtr<IDeckLinkKeyer> decklink_keyer_;
+		CComQIPtr<IDeckLinkAttributes> input_attributes_;
+		CComPtr<IDeckLinkVideoConversion> frame_converter_;
 		IDeckLinkDisplayMode* current_mode_;
 		Gdiplus::SolidBrush					background_;
 		Gdiplus::SolidBrush					foreground_;
@@ -31,7 +33,7 @@ namespace TimecodeDecoder {
 		void OpenOutput(BMDDisplayMode format);
 		void CloseInput();
 	public:
-		DecklinkTimecodeDecoder(int inputDecklinkIndex, int outputDecklinkIndex, BMDDisplayMode format, BMDTimecodeFormat timecodeSource);
+		DecklinkTimecodeDecoder(int inputDecklinkIndex, int outputDecklinkIndex, BMDDisplayMode format, BMDTimecodeFormat timecodeSource, Keyer keyer);
 		~DecklinkTimecodeDecoder();
 
 		//IDeckLinkInputCallback

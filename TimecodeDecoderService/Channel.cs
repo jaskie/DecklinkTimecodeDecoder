@@ -4,11 +4,6 @@ using System.Xml.Serialization;
 
 namespace TimecodeDecoderService
 {
-    public enum Keyer
-    {
-        Internal,
-        Passthrough
-    }
 
     [XmlType("channel")]
     public class Channel: IDisposable
@@ -22,7 +17,7 @@ namespace TimecodeDecoderService
         public int Output { get; set; }
 
         [XmlAttribute]
-        public Keyer Keyer { get; set; }
+        public TimecodeDecoder.Keyer Keyer { get; set; }
 
         [XmlAttribute]
         public TimecodeDecoder.VideoFormat VideoFormat { get; set; }
@@ -39,7 +34,7 @@ namespace TimecodeDecoderService
         public void Start()
         {
             _timecodeDecoder?.Dispose();
-            _timecodeDecoder = new TimecodeDecoder.TimecodeDecoder(Input, Output, VideoFormat, TcSource);
+            _timecodeDecoder = new TimecodeDecoder.TimecodeDecoder(Input, Output, VideoFormat, TcSource, Keyer);
         }
     }
 }
